@@ -1,6 +1,8 @@
 import json
-from channels.generic.websocket import AsyncWebsocketConsumer
 
+from channels.generic.websocket import AsyncWebsocketConsumer
+from channels.db import database_sync_to_async
+from .models import Message
 class ChatConsumer(AsyncWebsocketConsumer):
 
     async def connect(self):
@@ -19,20 +21,21 @@ class ChatConsumer(AsyncWebsocketConsumer):
             self.channel_name
         )
 
-    async def receive(self, text_data):
-        data = json.loads(text_data)
-        message = data['message']
-        # Get the username from the session scope
-        username = self.scope["user"].username 
+    # chat/consumers.py (Partial code)
+async def receive(self, text_data):
+    data = json.loads(text_data)
+    message = data['message']
+    user = self.scope['user']
 
-        await self.channel_layer.group_send(
-            self.room_group_name,
-            {
-                'type': 'chat_message',
-                'message': message,
-                'username': username, # Sending username to the group
-            }
-        )
+    # save to datab5ase
+    await self.save_message(user, message)
+
+    # send to everyone
+    await self.channel_layer.group_send(...)
+
+@database_sync_to_async
+def save_message(self, user, message):
+    Message.objects.create(user=user, content=message)
 
     async def chat_message(self, event):
         message = event['message']
